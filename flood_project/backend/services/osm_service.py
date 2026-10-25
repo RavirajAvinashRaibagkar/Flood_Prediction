@@ -66,7 +66,7 @@ async def fetch_water_bodies(lat: float, lng: float, radius_km: int = 20) -> dic
         if entry:
             logger.warning("Returning stale OSM cache")
             return entry["data"]
-        return {"type": "FeatureCollection", "features": []}
+        return {"type": "FeatureCollection", "features": [], "degraded": True}
 
 
 def _osm_to_geojson(osm_data: dict) -> dict:

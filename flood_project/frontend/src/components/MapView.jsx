@@ -88,7 +88,7 @@ function clearSignalId() {
   localStorage.removeItem('fs_signal_id')
 }
 
-export default function MapView({ layers = {}, selectedRouteId, center = [28.6139, 77.2090], zoom = 12, bbox, viewMode = 'operational', isFullscreen, toggleFullscreen, onOfferShelter }) {
+export default function MapView({ layers = {}, routing, center = [28.6139, 77.2090], zoom = 12, bbox, viewMode = 'operational', isFullscreen, toggleFullscreen, onOfferShelter }) {
   const tile = TILE_LAYERS[viewMode] || TILE_LAYERS.operational
   // Reduce overlay opacity in terrain mode
   const overlayOpacity = viewMode === 'terrain' ? 0.65 : 1.0
@@ -177,7 +177,7 @@ export default function MapView({ layers = {}, selectedRouteId, center = [28.613
           {layers.flowDirection && <FlowDirectionLayer />}
           {layers.criticalInfrastructure && <CriticalInfrastructureLayer />}
           {layers.waterSensors && <SensorLayer sensors={[]} />}
-          {layers.evacuationRoutes && <EvacuationRoutes routes={[]} selectedRouteId={selectedRouteId} />}
+          {layers.evacuationRoutes && routing && <EvacuationRoutes routing={routing} />}
         </Pane>
 
         <EmergencySignalsLayer signals={signals} />

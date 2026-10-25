@@ -97,7 +97,7 @@ class ShelterSummary(BaseModel):
 
 # ─── Routes ─────────────────────────────────────────────────
 
-@router.get("/", response_model=List[ShelterOut])
+@router.get("", response_model=List[ShelterOut])
 def list_shelters(
     bbox: Optional[str] = Query(None, description="Optional bbox: south,west,north,east"),
     db: Session = Depends(get_db),
@@ -162,7 +162,7 @@ def shelter_summary(db: Session = Depends(get_db)):
     )
 
 
-@router.post("/", response_model=ShelterOut)
+@router.post("", response_model=ShelterOut)
 def create_shelter(payload: ShelterCreate, db: Session = Depends(get_db)):
     _cleanup_expired(db)
 
@@ -317,6 +317,7 @@ async def safe_route(
         return {
             "routes": routes,
             "count": len(routes),
+            "flood_data_available": not flood_zones.get("degraded", False),
             "recommendation": routes[0]["label"] if routes else "No route found",
         }
     except Exception as e:

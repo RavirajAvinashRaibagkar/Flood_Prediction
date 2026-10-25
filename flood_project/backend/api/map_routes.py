@@ -52,6 +52,7 @@ async def get_evacuation_route(
         return {
             "routes": routes,
             "count": len(routes),
+            "flood_data_available": not flood_zones.get("degraded", False),
             "algorithm": "OSRM + Shapely flood overlap scoring",
         }
     except Exception as e:

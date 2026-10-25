@@ -27,3 +27,12 @@ flood_project/ml_training/logs/
 # ML datasets (exceed GitHub size limits)
 flood_project/ml_training/data/
 
+
+# Secrets / editor / OS noise
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pyc

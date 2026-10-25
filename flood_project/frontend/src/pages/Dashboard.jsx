@@ -8,6 +8,7 @@ import MapView from '../components/MapView'
 import AnalyticsPanel from '../components/AnalyticsPanel'
 import ShelterRegistrationModal from '../components/ShelterRegistrationModal'
 import useFloodData from '../hooks/useFloodData'
+import useRouting from '../hooks/useRouting'
 
 export default function Dashboard() {
   const { region } = useRegion()
@@ -22,7 +23,7 @@ export default function Dashboard() {
     flowDirection: false
   })
 
-  const [selectedRouteId, setSelectedRouteId] = useState('route_0')
+  const routing = useRouting(region)
   const [viewMode, setViewMode] = useState('operational')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState(false)
@@ -100,7 +101,7 @@ export default function Dashboard() {
         <div className="map-wrapper flex-1 relative z-0">
           <MapView
             layers={layers}
-            selectedRouteId={selectedRouteId}
+            routing={routing}
             center={[region.lat, region.lng]}
             zoom={region.zoom || 12}
             bbox={region.bbox}
@@ -125,8 +126,8 @@ export default function Dashboard() {
             <RightCommandPanel
               riskScore={riskScore}
               alertStatus={alertStatus}
-              selectedRouteId={selectedRouteId}
-              setSelectedRouteId={setSelectedRouteId}
+              routing={routing}
+              origin={region}
             />
           </div>
         </div>

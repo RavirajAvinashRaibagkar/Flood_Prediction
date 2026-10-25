@@ -4,7 +4,7 @@
 
 The project already has the real Sen1Floods11 hand-labeled Sentinel-1 SAR data: 446 paired chips and masks, plus official split files. `flood_project/ml_training/data/seg_dataset/leakage_audit_seg.json` records 252 train, 89 validation, 90 test, and 15 Bolivia holdout chips; it reports no cross-split duplicates and train-only normalization statistics. No dataset download or split rebuild is needed.
 
-Train the U-Net segmentation model in `flood_project/ml_training/train_unet_seg.py`. Do not use `train_cnn_classifier.py` for this run: its current data generator trains on synthetic images. The U-Net consumes the real 2-band Sentinel-1 VV/VH data (with a derived third channel) and hand-labeled masks.
+Train the U-Net segmentation model in `flood_project/ml_training/train_unet_seg.py`. The old `train_cnn_classifier.py` was removed; use `train_cnn_v2.py` for the RGB MobileNetV2 classifier. For this run: its current data generator trains on synthetic images. The U-Net consumes the real 2-band Sentinel-1 VV/VH data (with a derived third channel) and hand-labeled masks.
 
 ## Windows setup
 

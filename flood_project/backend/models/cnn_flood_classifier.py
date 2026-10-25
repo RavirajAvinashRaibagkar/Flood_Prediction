@@ -132,8 +132,12 @@ try:
     def load_trained_model():
         """Load the best available trained classifier checkpoint; never build a fresh model for inference."""
         model_dir = Path(__file__).resolve().parents[2] / "ml_training" / "saved_models"
-        candidates = [model_dir / "cnn_flood_classifier_phase3.keras",
-                      model_dir / "cnn_flood_classifier.h5"]
+        # Names must match what train_cnn_v2.py writes (cnn_v2_seed<N>.keras);
+        # the older names are kept as fallbacks.
+        candidates = sorted(model_dir.glob("cnn_v2_seed*.keras"), reverse=True) + [
+            model_dir / "cnn_flood_classifier_phase3.keras",
+            model_dir / "cnn_flood_classifier.h5",
+        ]
         for checkpoint in candidates:
             if checkpoint.is_file():
                 try:

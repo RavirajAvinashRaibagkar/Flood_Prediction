@@ -1,7 +1,7 @@
 """
 Threshold Calibrator — Flood AI
 =========================================
-Loads the CWC danger thresholds exported by data_pipeline.py
+Loads the CWC danger thresholds exported by data_pipeline_v3.py
 (sourced from real INDOFLOODS metadata) and provides a nearest-gauge
 lookup that calibrates hydro_service.py with real values.
 
@@ -18,9 +18,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_THRESHOLDS_PATH = os.path.join(
-    _THIS_DIR, "..", "..", "ml_training", "data", "processed", "danger_thresholds.json"
-)
+_DATA_DIR = os.path.join(_THIS_DIR, "..", "..", "ml_training", "data")
+_THRESHOLD_CANDIDATES = [
+    os.path.join(_DATA_DIR, "processed_v3", "danger_thresholds.json"),
+    os.path.join(_DATA_DIR, "processed", "danger_thresholds.json"),
+]
+_THRESHOLDS_PATH = next((p for p in _THRESHOLD_CANDIDATES if os.path.exists(p)), _THRESHOLD_CANDIDATES[0])
 
 _thresholds: dict = {}
 
@@ -30,7 +33,7 @@ def _load_thresholds():
     if _thresholds:
         return
     if not os.path.exists(_THRESHOLDS_PATH):
-        logger.warning("danger_thresholds.json not found — run data_pipeline.py first")
+        logger.warning("danger_thresholds.json not found — run data_pipeline_v3.py first")
         return
     with open(_THRESHOLDS_PATH, encoding="utf-8") as f:
         _thresholds = json.load(f)

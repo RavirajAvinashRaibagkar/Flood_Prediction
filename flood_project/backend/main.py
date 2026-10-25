@@ -171,12 +171,12 @@ async def health_check():
         spec_hash = "unknown"
 
     meta_file = Path(__file__).resolve().parent / ".." / "ml_training" / "data" / "processed_v3" / "feature_metadata.json"
-    training_date = "2026-10-19"
+    training_date = "unknown"
     if meta_file.exists():
         try:
             with open(meta_file) as f:
                 meta = json.load(f)
-                training_date = meta.get("timestamp", "2026-10-19")
+                training_date = meta.get("timestamp", "unknown")
         except Exception:
             pass
 

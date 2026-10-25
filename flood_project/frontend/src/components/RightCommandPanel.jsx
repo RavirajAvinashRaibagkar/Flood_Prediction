@@ -1,36 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useRegion } from '../context/RegionContext'
-import { getEvacuationRoute } from '../services/api'
 import { getEmergencySignalsSummary } from '../services/api'
 import ShelterPanel from './ShelterPanel'
+import PlaceSearchRoute from './PlaceSearchRoute'
 
-export default function RightCommandPanel({ riskScore, alertStatus, selectedRouteId, setSelectedRouteId }) {
-  const { region } = useRegion()
-  const [routes, setRoutes] = useState([])
+export default function RightCommandPanel({ riskScore, alertStatus, routing, origin }) {
 
   const level = riskScore?.level || 'LOADING'
   const score = Number.isFinite(riskScore?.score) ? riskScore.score : null
-
-  // Fetch real routes
-  useEffect(() => {
-    async function fetchRoutes() {
-      try {
-        const res = await getEvacuationRoute(region.lat, region.lng, region.lat - 0.03, region.lng - 0.04)
-        if (res.data?.routes) {
-          const colors = ['#22c55e', '#eab308', '#ef4444']
-          const names = ['Route A — Primary', 'Route B — Alternate', 'Route C — Avoid']
-          const badges = ['SAFE', 'MODERATE', 'DANGEROUS']
-          setRoutes(res.data.routes.map((r, i) => ({
-            id: r.id || `route_${i}`, name: names[i] || `Route ${i+1}`,
-            distance: `${r.distance_km} km`, risk: r.risk_score || 0,
-            time: `${r.duration_min} min`, color: colors[i] || '#64748b',
-            badge: badges[i] || 'UNKNOWN',
-          })))
-        }
-      } catch (err) { console.warn('Route fetch failed:', err) }
-    }
-    fetchRoutes()
-  }, [region.lat, region.lng])
 
   // Population estimation (Item 6 — density × affected area heuristic)
   const populationAtRisk = useMemo(() => {
@@ -75,6 +51,9 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
 
   return (
     <div className="h-full flex flex-col gap-2.5">
+      {/* ═══ BLOCK 0: PLACE SEARCH + NEAREST/SAFEST ROUTE ═══ */}
+      <PlaceSearchRoute routing={routing} origin={origin} />
+
       {/* ═══ BLOCK 1: RISK STATUS ═══ */}
       <div className={`panel p-3 rounded-lg border ${riskBg}`}>
         <div className="flex items-center justify-between mb-1.5">
@@ -90,37 +69,6 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
           <p className="text-[10px] font-medium text-slate-200">
             {score === null ? 'Risk assessment unavailable.' : level === 'HIGH' ? 'Follow evacuation instructions from local authorities.' : level === 'MEDIUM' ? 'Monitor local advisories and water levels.' : 'Continue monitoring local conditions.'}
           </p>
-        </div>
-      </div>
-
-      {/* ═══ BLOCK 2: ROUTE INTELLIGENCE ═══ */}
-      <div className="panel p-3 rounded-lg">
-        <h3 className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mb-2">🗺 Evacuation Routes</h3>
-        <div className="space-y-1.5">
-          {(routes.length > 0 ? routes : [
-            { id: 'route_unavailable', name: 'Route data unavailable', distance: '—', risk: '—', time: '—', color: '#64748b', badge: 'UNKNOWN' },
-          ]).map((route, idx) => {
-            const isSelected = selectedRouteId === route.id || (!selectedRouteId && idx === 0)
-            const bc = { SAFE: '#22c55e', MODERATE: '#eab308', DANGEROUS: '#ef4444' }[route.badge] || '#64748b'
-            return (
-              <div key={route.id} onClick={() => setSelectedRouteId(route.id)}
-                className={`p-2 rounded-md border cursor-pointer transition-all ${
-                  isSelected ? 'bg-blue-500/10 border-blue-500/30' : 'bg-white/3 border-white/5 hover:border-white/10 opacity-60'
-                }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-bold text-slate-200">{route.name}</span>
-                  <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full" style={{ color: bc, background: `${bc}20`, border: `1px solid ${bc}40` }}>
-                    {route.badge}
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-1 text-[9px] font-mono">
-                  <div className="text-slate-500">Dist: <span className="text-slate-300">{route.distance}</span></div>
-                  <div className="text-slate-500">Risk: <span style={{ color: route.risk > 50 ? '#ef4444' : route.risk === '—' ? '#94a3b8' : '#22c55e' }}>{route.risk === '—' ? '—' : `${route.risk}%`}</span></div>
-                  <div className="text-slate-500 text-right">ETA: <span className="text-cyan-400">{route.time}</span></div>
-                </div>
-              </div>
-            )
-          })}
         </div>
       </div>
 

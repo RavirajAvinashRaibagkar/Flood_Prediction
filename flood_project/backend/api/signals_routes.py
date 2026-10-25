@@ -71,7 +71,7 @@ class SignalSummary(BaseModel):
     expired_cleaned: int = 0
 
 
-@router.get("/", response_model=List[SignalOut])
+@router.get("", response_model=List[SignalOut])
 def list_signals(
     bbox: Optional[str] = Query(
         None,
@@ -124,7 +124,7 @@ def signals_summary(db: Session = Depends(get_db)):
     )
 
 
-@router.post("/", response_model=SignalOut)
+@router.post("", response_model=SignalOut)
 def create_signal(payload: SignalCreate, db: Session = Depends(get_db)):
     _cleanup_expired(db)
 
