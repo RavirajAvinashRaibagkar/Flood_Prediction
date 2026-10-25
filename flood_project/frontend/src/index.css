@@ -62,6 +62,27 @@ body {
 .leaflet-container {
   background: #0f172a !important;
   font-family: 'Inter', sans-serif;
+  width: 100%;
+  height: 100%;
+}
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+.leaflet-control-zoom {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+.leaflet-control-zoom a {
+  background-color: #0f172a !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.leaflet-control-zoom a:hover {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
 }
 .dark-popup .leaflet-popup-content-wrapper {
   background: #1e293b !important;

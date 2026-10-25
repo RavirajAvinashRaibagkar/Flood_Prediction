@@ -257,9 +257,10 @@ def delete_shelter(shelter_id: str, db: Session = Depends(get_db)):
 def nearest_shelter(
     lat: float = Query(...),
     lng: float = Query(...),
+    max_distance_km: float = Query(50, gt=0, le=200),
     db: Session = Depends(get_db),
 ):
-    """Find the nearest shelter with available capacity."""
+    """Find the nearest shelter within the requested local search radius."""
     _cleanup_expired(db)
     all_shelters = db.query(Shelter).all()
 
@@ -271,7 +272,7 @@ def nearest_shelter(
 
     for s in all_shelters:
         d = _haversine(lat, lng, s.lat, s.lng)
-        if d < best_dist:
+        if d <= max_distance_km and d < best_dist:
             best_dist = d
             best = s
 

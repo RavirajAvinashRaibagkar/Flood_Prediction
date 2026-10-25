@@ -7,7 +7,7 @@ function debounce(fn, ms) {
 }
 
 export default function LeftPanel({ layers, toggleLayer, viewMode, setViewMode }) {
-  const { region, updateRegion, locateMe } = useRegion()
+  const { region, updateRegion, locateMe, locationStatus, locationError } = useRegion()
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [showResults, setShowResults] = useState(false)
@@ -52,7 +52,7 @@ export default function LeftPanel({ layers, toggleLayer, viewMode, setViewMode }
             onFocus={() => searchResults.length > 0 && setShowResults(true)}
             placeholder={region.regionName}
             className="w-full bg-white/5 border border-white/8 rounded-md px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500/50 pr-8" />
-          <button onClick={locateMe} title="Use my location" className="absolute right-2 top-1/2 -translate-y-1/2 text-sm hover:scale-110 transition-transform">📍</button>
+          <button onClick={locateMe} disabled={locationStatus === 'locating'} title="Use my location" className="absolute right-2 top-1/2 -translate-y-1/2 text-sm hover:scale-110 transition-transform disabled:opacity-50">{locationStatus === 'locating' ? '⌛' : '📍'}</button>
           {showResults && searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-[#0f172a] border border-white/10 rounded-lg shadow-xl z-[9999] max-h-48 overflow-y-auto">
               {searchResults.map((r, i) => (
@@ -61,6 +61,13 @@ export default function LeftPanel({ layers, toggleLayer, viewMode, setViewMode }
                 </button>
               ))}
             </div>
+          )}
+        </div>
+        <div className="mt-2 text-[9px] leading-relaxed">
+          {locationStatus === 'locating' && <span className="text-cyan-300">Finding your current location…</span>}
+          {locationError && <span className="text-amber-300">{locationError}</span>}
+          {region.locationSource === 'device' && locationStatus === 'ready' && (
+            <span className="text-slate-400">GPS: {region.lat.toFixed(4)}, {region.lng.toFixed(4)} · ±{region.locationAccuracyM || '?'} m</span>
           )}
         </div>
       </div>

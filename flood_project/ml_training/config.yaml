@@ -1,0 +1,184 @@
+# config.yaml  --  FloodSentinel AI  (v3 — Single Source of Truth)
+# =================================================================
+# All hyperparameters, paths, and feature specs in one file.
+# Referenced by: data_pipeline_v3.py, train_lstm_v3.py,
+#               backend/models/lstm_water_prediction.py,
+#               backend/services/prediction_service.py
+#
+# BUG 7 FIX: All paths relative to ml_training/; use pathlib in code.
+# BUG 8 FIX: feature_spec is the SINGLE shared spec; backend must match.
+
+# ── Paths ─────────────────────────────────────────────────────────────
+paths:
+  raw_data:           data/raw/
+  processed_v3:       data/processed_v3/     # canonical processed dir (v3)
+  processed_v2:       data/processed_v2/     # legacy (6 features, no static)
+  saved_models:       saved_models/
+  indofloods:         data/raw/indofloods/
+  ifi_impacts:        data/raw/ifi_impacts/
+  sen1floods11:       data/raw/sen1floods11/  # download with scripts/download_sen1floods11.py
+  logs:               logs/
+
+# ── Feature spec (SINGLE SOURCE OF TRUTH for training + backend) ──────
+feature_spec:
+  version:            v3
+  timesteps:          10
+  dynamic_features:
+    - rainfall_cumulative_mm    # [0]  10-day lag precipitation T1d..T10d
+    - rainfall_delta_mm         # [1]  day-on-day change
+    - peak_discharge_cumec      # [2]  peak Q; strictly measured BEFORE peak level
+    - antecedent_precipitation_index  # [3]  antecedent precipitation index (API k=0.85); strictly before peak
+    - event_duration_days       # [4]  historical at event start
+    - dfsi_severity_index       # [5]  state-level DFSI (static per gauge event)
+  static_features:
+    - lat                       # [6]  gauge latitude
+    - lon                       # [7]  gauge longitude
+    - danger_level_m            # [8]  gauge danger threshold (gauge property, not target)
+    - warning_level_m           # [9]  gauge warning threshold
+    - catchment_area_km2        # [10] from INDOFLOODS catchment_characteristics
+  n_dynamic:          6
+  n_static:           5
+  n_total:            11
+  target:             peak_flood_level_m_residual
+  target_note: >
+    Residual = peak_level - danger_level_m (excess above gauge danger threshold).
+    At inference: predicted_m = pred_residual + danger_level_m.
+
+# ── Data Pipeline ─────────────────────────────────────────────────────
+pipeline:
+  random_seed:        42
+  split:
+    strategy:         GroupKFold_by_GaugeID
+    train_frac:       0.70
+    val_frac:         0.15
+    test_frac:        0.15
+    temporal_holdout_year: 2018      # secondary report: train<=2018, test>2018
+  scalers:
+    features:         RobustScaler  # fit on train only; BUG 1 FIX
+    target:           MinMaxScaler  # on residuals; train only
+  sources:
+    - INDOFLOODS (Zenodo 14584655)
+    - IFI-Impacts DFSI (Zenodo 16994648)
+
+# ── LSTM ──────────────────────────────────────────────────────────────
+lstm:
+  architecture:       BiDir-LSTM + AttentionPooling
+  # BUG 2 FIX: AttentionPooling replaces Lambda(tf.reduce_sum)
+  bilstm_units:       [64, 32]      # per direction
+  dense_units:        [32, 16]
+  dropout:            [0.3, 0.2]
+  l2_factor:          1.0e-4
+  l1_factor:          5.0e-5
+  recurrent_dropout:  0.2
+  input_noise:        0.02
+  spatial_dropout:    0.1
+  loss:               huber         # BUG 3 FIX: Huber loss for robustness
+  optimizer:          AdamW
+  lr_schedule:        CosineDecayRestarts
+  initial_lr:         5.0e-4
+  batch_size:         32
+  max_epochs:         100
+  early_stopping:
+    monitor:          val_loss
+    patience:         15
+    min_delta:        1.0e-5
+  augmentation:
+    enabled:          true
+    n_augment:        1
+    jitter_std:       0.005
+    warp_range:       [0.90, 1.10]
+  seeds:              [42, 7, 99]   # 3-seed CI report
+
+# ── CNN Classifier ────────────────────────────────────────────────────
+cnn:
+  architecture:       U-Net / DeepLabV3+ / SegFormer-B0
+  input_shape:        [256, 256, 2]   # SAR VV + VH
+  l2_factor:          1.0e-4
+  loss:               focal+dice
+  data_source:        Sen1Floods11    # BUG 4+5 FIX: real labeled data only
+  split_strategy:     leave_event_out # never by tile
+  min_confidence_pseudo: 0.90
+  seeds:              [42, 7, 99]
+  augmentation:
+    train_only:       true           # val/test NEVER augmented
+    flips:            true
+    rotations:        [0, 90, 180, 270]
+    speckle_noise:    true
+    channel_dropout:  true
+
+# ── Evaluation ────────────────────────────────────────────────────────
+evaluation:
+  metrics_lstm:
+    - mae_m
+    - rmse_m
+    - r2
+    - nse
+    - kge
+    - median_ae_m
+    - p90_ae_m
+    - overfit_gap
+  metrics_cnn:
+    - iou
+    - dice_f1
+    - precision
+    - recall
+    - pr_auc
+  leakage_guard:
+    r2_suspicion_threshold: 0.95   # flag if test R² > this
+    cnn_acc_suspicion: 0.98
+  n_seeds:            3
+
+# ── External Datasets (Phase 2) ───────────────────────────────────────
+external_datasets:
+  # Hydrology / LSTM
+  indofloods:
+    zenodo_id:        14584655
+    license:          CC-BY-4.0
+    download:         scripts/download_indofloods.py
+  ifi_impacts:
+    zenodo_id:        16994648
+    license:          CC-BY-4.0
+    download:         scripts/download_ifi_impacts.py
+  era5_land:
+    url:              https://open-meteo.com/en/docs/historical-weather-api
+    license:          CC-BY-4.0
+    download:         scripts/download_era5_openmeteo.py
+  glofas:
+    url:              https://flood-api.open-meteo.com/v1/flood
+    license:          CC-BY-4.0
+    download:         scripts/download_glofas_openmeteo.py
+  # Satellite / CNN
+  sen1floods11:
+    url:              https://github.com/cloudtostreet/Sen1Floods11
+    license:          CC-BY-4.0
+    type:             S1 VV/VH + S2, hand-labeled 446 chips
+    download:         scripts/download_sen1floods11.py
+  worldfloods:
+    url:              https://github.com/spaceml-org/ml4floods
+    license:          Apache-2.0
+    type:             Sentinel-2 flood segmentation
+  mmflood:
+    url:              https://gitlab.com/fmaglia/MMFlood
+    license:          CC-BY-4.0
+    type:             Sentinel-1 + DEM + hydro-map masks
+
+# ── Routing ───────────────────────────────────────────────────────────
+routing:
+  network_type:       drive
+  flood_penalty:      1000.0
+  buffer_m:           100
+  weight:             risk_weight
+  output_format:      [geojson, folium_html]
+  shelter_search_radius_km: 30
+  osrm_timeout_s:     10
+  osrm_retries:       3
+
+# ── Backend API ───────────────────────────────────────────────────────
+backend:
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  open_meteo_timeout_s: 15
+  open_meteo_retries:   3
+  db_pool_size:         5
+  model_version:        v3

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRegion } from '../context/RegionContext'
+import { useNavigate } from 'react-router-dom'
 
 function debounce(fn, ms) {
   let timer
@@ -7,7 +8,8 @@ function debounce(fn, ms) {
 }
 
 export default function TopNavBar({ riskScore, showAnalytics, setShowAnalytics, onOfferShelter }) {
-  const { region, updateRegion } = useRegion()
+  const { region, updateRegion, locateMe, locationStatus, locationError } = useRegion()
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -47,7 +49,7 @@ export default function TopNavBar({ riskScore, showAnalytics, setShowAnalytics, 
     setSuggestions([])
   }
 
-  const level = riskScore?.level || 'MEDIUM'
+  const level = riskScore?.level || 'LOADING'
   const riskColor = level === 'HIGH' ? '#ef4444' : level === 'LOW' ? '#22c55e' : '#f59e0b'
 
   return (
@@ -85,6 +87,25 @@ export default function TopNavBar({ riskScore, showAnalytics, setShowAnalytics, 
 
       {/* Right: Analytics button + Status Chips */}
       <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="relative">
+          <button
+            onClick={locateMe}
+            disabled={locationStatus === 'locating'}
+            title={locationError || 'Use your current location'}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-cyan-500/25 bg-cyan-500/10 text-[9px] uppercase font-bold tracking-wider text-cyan-300 hover:bg-cyan-500/20 disabled:cursor-wait disabled:opacity-70"
+          >
+            <span>{locationStatus === 'locating' ? '⌛' : '📍'}</span>
+            {locationStatus === 'locating' ? 'Locating…' : 'My Location'}
+          </button>
+          {locationError && (
+            <p className="absolute right-0 top-full mt-1 w-56 rounded-md border border-amber-500/30 bg-[#111827] p-2 text-[10px] normal-case tracking-normal text-amber-200 shadow-xl z-[9999]">
+              {locationError}
+            </p>
+          )}
+        </div>
+        <button onClick={() => navigate('/models')} className="px-2.5 py-1 rounded-md border border-white/8 bg-white/5 text-[9px] uppercase font-bold tracking-wider text-slate-400 hover:text-cyan-300">
+          AI Models
+        </button>
         {/* Analytics Toggle Button (Item 5) */}
         <button
           onClick={() => setShowAnalytics(!showAnalytics)}
@@ -106,6 +127,7 @@ export default function TopNavBar({ riskScore, showAnalytics, setShowAnalytics, 
         </button>
 
         <StatusChip label="REGION" value={region.regionName} color="#06b6d4" />
+        {region.locationSource === 'device' && <StatusChip label="GPS" value={`±${region.locationAccuracyM || '?'}m`} color="#38bdf8" />}
         <StatusChip label="RISK" value={level} color={riskColor} pulse={level === 'HIGH'} />
         <StatusChip label="DATA" value="● LIVE" color="#22c55e" />
       </div>

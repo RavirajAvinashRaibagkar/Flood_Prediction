@@ -1,0 +1,29 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local Python environments
+.venv/
+.venv-seg/
+
+# Frontend build output and dependencies
+flood_project/frontend/dist/
+flood_project/frontend/node_modules/
+
+# Local development databases and logs
+floodsentinel.db
+flood_project/backend/floodsentinel.db
+flood_project/ml_training/logs/
+*.log
+
+# Model checkpoints and weights (exceed GitHub 100MB limit)
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+
+# ML datasets (exceed GitHub size limits)
+flood_project/ml_training/data/
+

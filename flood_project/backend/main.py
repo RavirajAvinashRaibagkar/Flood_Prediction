@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 
 from api.prediction_routes import router as prediction_router
@@ -121,7 +122,9 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "*"],
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS", "http://localhost:5173,http://localhost:5174,http://localhost:3000"
+    ).split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -152,11 +155,64 @@ async def websocket_endpoint(websocket: WebSocket, channel: str):
 
 
 # ─── Health Check ───────────────────────────────────────────
+@app.get("/health")
+async def health_check():
+    import hashlib
+    from pathlib import Path
+    
+    # Feature spec from models/lstm_water_prediction
+    try:
+        from models.lstm_water_prediction import FEATURE_NAMES, FEATURES
+        spec_str = ",".join(FEATURE_NAMES)
+        spec_hash = hashlib.sha256(spec_str.encode("utf-8")).hexdigest()[:16]
+    except Exception:
+        FEATURE_NAMES = []
+        FEATURES = 0
+        spec_hash = "unknown"
+
+    meta_file = Path(__file__).resolve().parent / ".." / "ml_training" / "data" / "processed_v3" / "feature_metadata.json"
+    training_date = "2026-10-19"
+    if meta_file.exists():
+        try:
+            with open(meta_file) as f:
+                meta = json.load(f)
+                training_date = meta.get("timestamp", "2026-10-19")
+        except Exception:
+            pass
+
+    try:
+        from services.prediction_service import prediction_service
+        model_status = {
+            "lstm_loaded": prediction_service.lstm_model is not None,
+            "cnn_loaded": prediction_service.cnn_classifier is not None,
+            "unet_loaded": prediction_service.unet_adapter is not None and prediction_service.unet_adapter.is_ready(),
+        }
+    except Exception:
+        model_status = {"lstm_loaded": False, "cnn_loaded": False, "unet_loaded": False}
+
+    return {
+        "status": "healthy" if (model_status["lstm_loaded"] and model_status["cnn_loaded"]) else "degraded",
+        "model_version": "v3",
+        "feature_spec_version": "v3",
+        "feature_count": FEATURES,
+        "feature_spec_hash": spec_hash,
+        "training_date": training_date,
+        "features": FEATURE_NAMES,
+        "models": {
+            "lstm": "FloodLSTM-v3 (BiLSTM + AttentionPooling)",
+            "cnn": "FloodCNN-MobileNetV2-Transfer",
+            "unet": "FloodUNet-ResNet34 (Sen1Floods11 Pixel Segmentation)",
+            **model_status,
+        },
+    }
+
+
 @app.get("/")
 async def root():
     return {
         "name": "FloodSentinel AI",
         "version": "2.0.0",
+        "model_version": "v3",
         "status": "operational",
         "data_sources": {
             "weather": "Open-Meteo (real-time)",
@@ -167,6 +223,7 @@ async def root():
             "elevation": "Open-Meteo Elevation API",
         },
         "endpoints": {
+            "health": "/health",
             "weather": "/api/weather/current?lat=&lng=",
             "flood_zones": "/api/map/flood-zones?lat=&lng=",
             "routing": "/api/map/evacuation-route?origin_lat=&origin_lng=&dest_lat=&dest_lng=",

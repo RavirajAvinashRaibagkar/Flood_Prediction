@@ -9,6 +9,12 @@ import logging
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+try:
+    from services.threshold_calibrator import get_danger_level_for_location
+    _HAS_CALIBRATOR = True
+except ImportError:
+    _HAS_CALIBRATOR = False
+
 logger = logging.getLogger(__name__)
 
 # ─── Cache ──────────────────────────────────────────────────
@@ -116,8 +122,24 @@ def _parse_river_response(data: dict, lat: float, lng: float) -> dict:
     avg_7day = sum(past_7) / len(past_7) if past_7 else 0
     max_7day = max(past_7) if past_7 else 0
 
-    # Dynamic danger threshold: 30% above 7-day max
-    danger_threshold = max_7day * 1.3 if max_7day > 0 else 100
+    # Dynamic danger threshold: prefer real CWC gauge data, fallback to 30% above 7d max
+    indofloods_threshold = None
+    if _HAS_CALIBRATOR:
+        try:
+            cal = get_danger_level_for_location(lat, lng)
+            if cal.get("danger_level_m") is not None and cal["distance_km"] < 150:
+                indofloods_threshold = cal["danger_level_m"]
+                logger.info(
+                    f"Using CWC danger level {indofloods_threshold}m from "
+                    f"{cal['gauge_id']} ({cal['distance_km']}km, river: {cal['river']})"
+                )
+        except Exception as e:
+            logger.debug(f"Threshold calibrator error: {e}")
+
+    if indofloods_threshold is not None:
+        danger_threshold = indofloods_threshold
+    else:
+        danger_threshold = max_7day * 1.3 if max_7day > 0 else 100
 
     # Surge ratio
     surge_ratio = current / avg_7day if avg_7day > 0 else 1.0

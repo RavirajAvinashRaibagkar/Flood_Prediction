@@ -1,0 +1,195 @@
+{
+  "seed": 42,
+  "encoder": "resnet34",
+  "best_epoch": 2,
+  "best_val_iou": 0.2266629684631279,
+  "splits": {
+    "val": {
+      "global": {
+        "iou_flood": 0.2472526427177447,
+        "iou_bg": 0.854989411786994,
+        "miou": 0.5511210272523693,
+        "precision": 0.3817645759187345,
+        "recall": 0.4123659001477026,
+        "f1": 0.39647563653019796,
+        "accuracy": 0.8615824062656675,
+        "tp": 922712,
+        "fp": 1494254,
+        "fn": 1314893,
+        "tn": 16562866,
+        "pr_auc": 0.3246680512856449,
+        "flood_area_frac_mean": 0.11422605626409807,
+        "flood_area_frac_std": 0.180282664300902
+      },
+      "bootstrap_ci": {
+        "iou_flood": {
+          "mean": 0.1383596306620226,
+          "ci95_lo": 0.105180277591777,
+          "ci95_hi": 0.1751653891571166,
+          "ci95_width": 0.0699851115653396
+        },
+        "iou_bg": {
+          "mean": 0.8406190959916896,
+          "ci95_lo": 0.8079821765740391,
+          "ci95_hi": 0.8679890177835069,
+          "ci95_width": 0.060006841209467754
+        },
+        "miou": {
+          "mean": 0.48948936332685616,
+          "ci95_lo": 0.4750857820724927,
+          "ci95_hi": 0.5042443010577528,
+          "ci95_width": 0.029158518985260062
+        },
+        "precision": {
+          "mean": 0.23257146136949006,
+          "ci95_lo": 0.18135493431613484,
+          "ci95_hi": 0.29442407072770216,
+          "ci95_width": 0.11306913641156732
+        },
+        "recall": {
+          "mean": 0.28234762656454365,
+          "ci95_lo": 0.23779025690209135,
+          "ci95_hi": 0.32298965501886184,
+          "ci95_width": 0.08519939811677049
+        },
+        "f1": {
+          "mean": 0.21006398380901745,
+          "ci95_lo": 0.16531803693690486,
+          "ci95_hi": 0.25885679195957484,
+          "ci95_width": 0.09353875502266998
+        }
+      },
+      "n_chips": 86,
+      "threshold": 0.5517241379310345
+    },
+    "test": {
+      "global": {
+        "iou_flood": 0.2801934940271198,
+        "iou_bg": 0.8538094288052525,
+        "miou": 0.5670014614161861,
+        "precision": 0.44521994680926097,
+        "recall": 0.43049981275094007,
+        "f1": 0.43773616306346286,
+        "accuracy": 0.8616806922642657,
+        "tp": 1104706,
+        "fp": 1376553,
+        "fn": 1461395,
+        "tn": 16574713,
+        "pr_auc": 0.3947966395745742,
+        "flood_area_frac_mean": 0.13514114436380645,
+        "flood_area_frac_std": 0.23811377486856078
+      },
+      "bootstrap_ci": {
+        "iou_flood": {
+          "mean": 0.15158722676852637,
+          "ci95_lo": 0.11364780979672903,
+          "ci95_hi": 0.19214793744782124,
+          "ci95_width": 0.07850012765109221
+        },
+        "iou_bg": {
+          "mean": 0.8223827867625118,
+          "ci95_lo": 0.7781350126634724,
+          "ci95_hi": 0.8610549830885376,
+          "ci95_width": 0.08291997042506516
+        },
+        "miou": {
+          "mean": 0.4869850067655191,
+          "ci95_lo": 0.4686536350888182,
+          "ci95_hi": 0.504026289258177,
+          "ci95_width": 0.035372654169358864
+        },
+        "precision": {
+          "mean": 0.25337160182805185,
+          "ci95_lo": 0.1950590790990801,
+          "ci95_hi": 0.3145252534778822,
+          "ci95_width": 0.11946617437880208
+        },
+        "recall": {
+          "mean": 0.3071153286579851,
+          "ci95_lo": 0.25598971066775006,
+          "ci95_hi": 0.35740700549622045,
+          "ci95_width": 0.1014172948284704
+        },
+        "f1": {
+          "mean": 0.22423878978761563,
+          "ci95_lo": 0.17581282232549633,
+          "ci95_hi": 0.2742935090109925,
+          "ci95_width": 0.09848068668549614
+        }
+      },
+      "n_chips": 89,
+      "threshold": 0.5517241379310345
+    },
+    "bolivia": {
+      "global": {
+        "iou_flood": 0.226674184566554,
+        "iou_bg": 0.8208006248034185,
+        "miou": 0.5237374046849863,
+        "precision": 0.44775306911611956,
+        "recall": 0.3146391009180766,
+        "f1": 0.3695752098127824,
+        "accuracy": 0.8297435504033559,
+        "tp": 143118,
+        "fp": 176518,
+        "fn": 311746,
+        "tn": 2236433,
+        "pr_auc": 0.3019722706802865,
+        "flood_area_frac_mean": 0.1699214819305295,
+        "flood_area_frac_std": 0.20450967471015538
+      },
+      "bootstrap_ci": {
+        "iou_flood": {
+          "mean": 0.15638101213222183,
+          "ci95_lo": 0.09660125034670602,
+          "ci95_hi": 0.2200497755487705,
+          "ci95_width": 0.12344852520206448
+        },
+        "iou_bg": {
+          "mean": 0.8001546525367872,
+          "ci95_lo": 0.7010129801121574,
+          "ci95_hi": 0.8819416807748413,
+          "ci95_width": 0.18092870066268385
+        },
+        "miou": {
+          "mean": 0.4782678323345046,
+          "ci95_lo": 0.446044242459513,
+          "ci95_hi": 0.5094056441161524,
+          "ci95_width": 0.0633614016566394
+        },
+        "precision": {
+          "mean": 0.3249813364939667,
+          "ci95_lo": 0.1925258799766609,
+          "ci95_hi": 0.4827641188766015,
+          "ci95_width": 0.2902382388999406
+        },
+        "recall": {
+          "mean": 0.29699000586824875,
+          "ci95_lo": 0.19157021918576747,
+          "ci95_hi": 0.40943743286355566,
+          "ci95_width": 0.2178672136777882
+        },
+        "f1": {
+          "mean": 0.252537216551059,
+          "ci95_lo": 0.1605778685084645,
+          "ci95_hi": 0.3477180795751246,
+          "ci95_width": 0.18714021106666007
+        }
+      },
+      "n_chips": 15,
+      "threshold": 0.5517241379310345
+    }
+  },
+  "best_epoch": 2,
+  "total_epochs_trained": 8,
+  "n_train_epochs": 8,
+  "early_stopping": {
+    "patience": 5,
+    "stopped_epoch": 7,
+    "best_epoch": 2,
+    "best_val_iou": 0.2266629684631279
+  },
+  "evaluation_notes": {
+    "metric_aggregation_clarification": "The headline 'global' metrics (e.g. Test IoU flood = 0.2802, Val IoU flood = 0.2473) are micro-pooled across all valid pixels (TP, FP, FN, TN) across all evaluated chips in the split. Conversely, 'bootstrap_ci' calculates per-chip metrics and evaluates 1000 bootstrap resamples across chips with replacement. Because per-chip IoU gives equal weight to chips with very small flood extents (where minor boundary discrepancies sharply reduce ratio scores), the macro per-chip bootstrap mean (0.1516 test, 0.1384 val) is lower than the pixel-pooled headline IoU.",
+    "chip_count_explanation": "Official Sen1Floods11 splits contain 89 validation chips and 90 test chips. Evaluation explicitly skips chips containing 100% nodata labels (label == -1 across all 512x512 pixels), because calculating IoU on zero ground-truth valid pixels is mathematically undefined (0/0 division). There are 3 all-nodata chips in validation and 1 in test, resulting in 86 evaluated validation chips and 89 evaluated test chips."
+  }
+}

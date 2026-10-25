@@ -8,8 +8,8 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
   const { region } = useRegion()
   const [routes, setRoutes] = useState([])
 
-  const level = riskScore?.level || 'MEDIUM'
-  const score = riskScore?.score || 50
+  const level = riskScore?.level || 'LOADING'
+  const score = Number.isFinite(riskScore?.score) ? riskScore.score : null
 
   // Fetch real routes
   useEffect(() => {
@@ -36,6 +36,7 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
   const populationAtRisk = useMemo(() => {
     // avg urban density ~5000/km², affected area estimated from score
     const density = 5000
+    if (score === null) return null
     const affectedAreaKm2 = (score / 100) * 8 // up to 8km² at 100% risk
     const total = Math.round(density * affectedAreaKm2)
     const zones = Math.max(1, Math.round(score / 25))
@@ -61,16 +62,16 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
 
   const timeInsight = useMemo(() => {
     const trendRaw = riskScore?.raw?.trend || riskScore?.trend || 'stable'
-    const trend = trendRaw === 'rising' ? 'Increasing' : trendRaw === 'falling' ? 'Decreasing' : 'Stable'
-    const confidence = Math.max(55, Math.min(95, Math.round(riskScore?.raw?.confidence ?? 82)))
-    const eta = score >= 80 ? '1–3 hours' : score >= 70 ? '3–5 hours' : score >= 50 ? '6–10 hours' : '12–24 hours'
-    const peak = score >= 70 ? 'Tonight' : score >= 50 ? 'Next 24 hours' : 'Low likelihood'
+    const trend = score === null ? 'Unavailable' : trendRaw === 'rising' ? 'Increasing' : trendRaw === 'falling' ? 'Decreasing' : 'Stable'
+    const confidence = null
+    const eta = 'Not available'
+    const peak = 'Not available'
     return { eta, peak, trend, confidence }
   }, [riskScore, score])
 
-  const riskBg = level === 'HIGH' ? 'bg-red-500/12 border-red-500/25' : level === 'MEDIUM' ? 'bg-amber-500/12 border-amber-500/25' : 'bg-green-500/12 border-green-500/25'
-  const riskTextColor = level === 'HIGH' ? 'text-red-400' : level === 'MEDIUM' ? 'text-amber-400' : 'text-green-400'
-  const riskBorderColor = level === 'HIGH' ? 'border-l-red-500' : level === 'MEDIUM' ? 'border-l-amber-500' : 'border-l-green-500'
+  const riskBg = level === 'HIGH' ? 'bg-red-500/12 border-red-500/25' : level === 'MEDIUM' ? 'bg-amber-500/12 border-amber-500/25' : level === 'LOW' ? 'bg-green-500/12 border-green-500/25' : 'bg-slate-500/10 border-slate-500/20'
+  const riskTextColor = level === 'HIGH' ? 'text-red-400' : level === 'MEDIUM' ? 'text-amber-400' : level === 'LOW' ? 'text-green-400' : 'text-slate-400'
+  const riskBorderColor = level === 'HIGH' ? 'border-l-red-500' : level === 'MEDIUM' ? 'border-l-amber-500' : level === 'LOW' ? 'border-l-green-500' : 'border-l-slate-500'
 
   return (
     <div className="h-full flex flex-col gap-2.5">
@@ -78,16 +79,16 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
       <div className={`panel p-3 rounded-lg border ${riskBg}`}>
         <div className="flex items-center justify-between mb-1.5">
           <span className={`text-xl font-extrabold tracking-tight ${riskTextColor}`}>{level} RISK</span>
-          <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded">{score}%</span>
+          <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2 py-0.5 rounded">{score === null ? '—' : `${score}%`}</span>
         </div>
         <div className="space-y-0.5 text-[11px] text-slate-300">
-          <p>⏱ {level === 'HIGH' ? 'Critical in ~4 hours' : level === 'MEDIUM' ? 'Monitor closely' : 'Stable conditions'}</p>
-          <p>👥 Population at Risk: {populationAtRisk.total.toLocaleString()}</p>
+          <p>⏱ {score === null ? 'Risk service unavailable' : level === 'HIGH' ? 'High risk — follow local authority guidance' : level === 'MEDIUM' ? 'Monitor local advisories' : 'No elevated risk detected'}</p>
+          <p>👥 Population at Risk (rough estimate): {populationAtRisk ? populationAtRisk.total.toLocaleString() : '—'}</p>
           <p>🆘 People requesting help: {signalSummary.help}</p>
         </div>
         <div className={`mt-2 p-2 rounded-md bg-white/5 border-l-2 ${riskBorderColor}`}>
           <p className="text-[10px] font-medium text-slate-200">
-            {level === 'HIGH' ? '"Evacuate affected zones immediately"' : level === 'MEDIUM' ? '"Prepare evacuation, monitor water levels"' : '"Normal operations, continue monitoring"'}
+            {score === null ? 'Risk assessment unavailable.' : level === 'HIGH' ? 'Follow evacuation instructions from local authorities.' : level === 'MEDIUM' ? 'Monitor local advisories and water levels.' : 'Continue monitoring local conditions.'}
           </p>
         </div>
       </div>
@@ -97,9 +98,7 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
         <h3 className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mb-2">🗺 Evacuation Routes</h3>
         <div className="space-y-1.5">
           {(routes.length > 0 ? routes : [
-            { id: 'route_0', name: 'Route A', distance: '—', risk: 0, time: '—', color: '#22c55e', badge: 'SAFE' },
-            { id: 'route_1', name: 'Route B', distance: '—', risk: 0, time: '—', color: '#eab308', badge: 'MODERATE' },
-            { id: 'route_2', name: 'Route C', distance: '—', risk: 0, time: '—', color: '#ef4444', badge: 'DANGEROUS' },
+            { id: 'route_unavailable', name: 'Route data unavailable', distance: '—', risk: '—', time: '—', color: '#64748b', badge: 'UNKNOWN' },
           ]).map((route, idx) => {
             const isSelected = selectedRouteId === route.id || (!selectedRouteId && idx === 0)
             const bc = { SAFE: '#22c55e', MODERATE: '#eab308', DANGEROUS: '#ef4444' }[route.badge] || '#64748b'
@@ -116,7 +115,7 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
                 </div>
                 <div className="grid grid-cols-3 gap-1 text-[9px] font-mono">
                   <div className="text-slate-500">Dist: <span className="text-slate-300">{route.distance}</span></div>
-                  <div className="text-slate-500">Risk: <span style={{ color: route.risk > 50 ? '#ef4444' : '#22c55e' }}>{route.risk}%</span></div>
+                  <div className="text-slate-500">Risk: <span style={{ color: route.risk > 50 ? '#ef4444' : route.risk === '—' ? '#94a3b8' : '#22c55e' }}>{route.risk === '—' ? '—' : `${route.risk}%`}</span></div>
                   <div className="text-slate-500 text-right">ETA: <span className="text-cyan-400">{route.time}</span></div>
                 </div>
               </div>
@@ -143,7 +142,7 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
           </div>
           <div className="flex items-center justify-between">
             <span className="text-slate-500">Confidence</span>
-            <span className="font-mono text-green-300">{timeInsight.confidence}%</span>
+            <span className="font-mono text-slate-400">{timeInsight.confidence === null ? '—' : `${timeInsight.confidence}%`}</span>
           </div>
         </div>
       </div>
@@ -152,8 +151,8 @@ export default function RightCommandPanel({ riskScore, alertStatus, selectedRout
       <div className="panel p-3 rounded-lg">
         <h3 className="text-[9px] uppercase font-bold tracking-widest text-slate-500 mb-2">⚡ Alert Status</h3>
         <div className="space-y-1.5">
-          <AlertRow label="Public Alert" status={alertStatus.publicAlert} />
-          <AlertRow label="Authorities" status={alertStatus.authorities} />
+          <AlertRow label="Public Alert Recommendation" status={alertStatus.publicAlert} />
+          <AlertRow label="Authority Recommendation" status={alertStatus.authorities} />
           {alertStatus.lastTriggerTime && (
             <div className="pt-1.5 border-t border-white/5 space-y-1">
               <div className="flex justify-between text-[9px]">
@@ -202,15 +201,17 @@ function AlertRow({ label, status }) {
     'NOTIFIED': { bg: 'bg-green-500/15', text: 'text-green-400', border: 'border-green-500/30' },
     'PENDING': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
     'STANDBY': { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-    'NOT SENT': { bg: 'bg-white/5', text: 'text-slate-500', border: 'border-white/5' },
+    'NO ACTION': { bg: 'bg-white/5', text: 'text-slate-500', border: 'border-white/5' },
+    'RECOMMENDED': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
+    'UNAVAILABLE': { bg: 'bg-white/5', text: 'text-slate-500', border: 'border-white/5' },
   }
-  const c = statusColors[status] || statusColors['NOT SENT']
+  const c = statusColors[status] || statusColors.UNAVAILABLE
 
   return (
     <div className="flex items-center justify-between">
       <span className="text-[10px] text-slate-400">{label}</span>
       <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${c.bg} ${c.text} ${c.border}`}>
-        {status === 'SENT' || status === 'NOTIFIED' ? '✓ ' : ''}{status}
+      {status === 'RECOMMENDED' ? '• ' : ''}{status}
       </span>
     </div>
   )

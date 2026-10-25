@@ -1,6 +1,10 @@
-import { MapContainer, TileLayer, ZoomControl, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, ZoomControl, useMap, Pane } from 'react-leaflet'
 import { useEffect, useState } from 'react'
+import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import FloodLayer from './FloodLayer'
 import SensorLayer from './SensorLayer'
 import EvacuationRoutes from './EvacuationRoutes'
@@ -12,14 +16,29 @@ import ShelterLayer from './ShelterLayer'
 import useEmergencySignals from '../hooks/useEmergencySignals'
 import { createEmergencySignal, deleteEmergencySignal, updateEmergencySignal } from '../services/api'
 
+// Ensure standard Leaflet marker assets resolve correctly in bundled builds
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+})
+
 const TILE_LAYERS = {
   operational: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com">CARTO</a>',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, DeLorme, NAVTEQ',
+    maxZoom: 16,
   },
   terrain: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; Esri',
+    attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+    maxZoom: 18,
+  },
+  osm: {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
   },
 }
 
@@ -142,16 +161,24 @@ export default function MapView({ layers = {}, selectedRouteId, center = [28.613
         <RegionFlyTo center={center} zoom={zoom} bbox={bbox} />
         <MapResizer isFullscreen={isFullscreen} />
         <MapCapture onMap={setMap} />
-        <TileLayer key={viewMode} attribution={tile.attribution} url={tile.url} />
+        <TileLayer key={viewMode} attribution={tile.attribution} url={tile.url} maxZoom={tile.maxZoom || 18} />
+        {viewMode === 'operational' && (
+          <TileLayer
+            key="operational-labels"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={16}
+            opacity={0.85}
+          />
+        )}
 
-        <div style={{ opacity: overlayOpacity }}>
+        <Pane name="floodOverlayPane" style={{ opacity: overlayOpacity, zIndex: 450 }}>
           {layers.populationExposure && <PopulationExposureLayer />}
           {layers.floodPrediction && <FloodLayer />}
           {layers.flowDirection && <FlowDirectionLayer />}
           {layers.criticalInfrastructure && <CriticalInfrastructureLayer />}
           {layers.waterSensors && <SensorLayer sensors={[]} />}
           {layers.evacuationRoutes && <EvacuationRoutes routes={[]} selectedRouteId={selectedRouteId} />}
-        </div>
+        </Pane>
 
         <EmergencySignalsLayer signals={signals} />
         <ShelterLayer />

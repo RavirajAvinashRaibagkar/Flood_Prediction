@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api',
     timeout: 30000,
     headers: { 'Content-Type': 'application/json' }
 })
@@ -10,6 +10,19 @@ const api = axios.create({
 export const predictImage = (formData) =>
     api.post('/predict/image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+export const predictSegmentation = (formData) =>
+    api.post('/predict/segmentation', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+export const getSampleS1Chips = () =>
+    api.get('/predict/sample-s1')
+
+export const predictSegmentSample = (chipFilename) =>
+    api.post('/predict/segment-sample', null, {
+        params: { chip_filename: chipFilename }
     })
 
 export const predictTimeseries = (formData) =>
@@ -90,8 +103,8 @@ export const updateShelter = (shelter_id, data) =>
 export const deleteShelter = (shelter_id) =>
     api.delete(`/shelters/${shelter_id}`)
 
-export const getNearestShelter = (lat, lng) =>
-    api.get('/shelters/nearest', { params: { lat, lng } })
+export const getNearestShelter = (lat, lng, maxDistanceKm = 50) =>
+    api.get('/shelters/nearest', { params: { lat, lng, max_distance_km: maxDistanceKm } })
 
 export const getShelterRoute = (lat, lng, shelter_lat, shelter_lng) =>
     api.get('/shelters/safe-route', {

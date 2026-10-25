@@ -2,13 +2,13 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
 import {
   listShelters,
-  getShelterSummary,
   createShelter,
   updateShelter as apiUpdateShelter,
   deleteShelter as apiDeleteShelter,
   getNearestShelter,
   getShelterRoute,
 } from '../services/api'
+import { useRegion } from './RegionContext'
 
 const ShelterContext = createContext(null)
 
@@ -31,6 +31,7 @@ function clearShelterId() {
 }
 
 export function ShelterProvider({ children }) {
+  const { region } = useRegion()
   const [shelters, setShelters] = useState([])
   const [summary, setSummary] = useState({ total: 0, hospitals: 0, schools: 0, government: 0, community: 0, estimated_capacity: 0 })
   const [selectedShelter, setSelectedShelter] = useState(null)
@@ -55,19 +56,35 @@ export function ShelterProvider({ children }) {
     return () => navigator.geolocation.clearWatch(watcher)
   }, [])
 
-  // Poll shelters
+  // Fetch shelters only within the current map region. Previously this requested the
+  // complete database, which kept showing seeded Delhi shelters after the map moved.
   const refresh = useCallback(async () => {
     try {
-      const [listRes, sumRes] = await Promise.all([
-        listShelters(),
-        getShelterSummary(),
-      ])
-      setShelters(listRes.data || [])
-      setSummary(sumRes.data || summary)
+      const bbox = region.bbox?.join(',')
+      const listRes = await listShelters(bbox ? { bbox } : {})
+      const nearbyShelters = listRes.data || []
+      const nearbySummary = nearbyShelters.reduce((totals, shelter) => {
+        totals.total += 1
+        const typeKey = shelter.type === 'hospital' ? 'hospitals'
+          : shelter.type === 'school' ? 'schools'
+            : shelter.type
+        if (typeKey in totals) totals[typeKey] += 1
+        const capacity = Number.parseInt(shelter.capacity, 10)
+        totals.estimated_capacity += Number.isFinite(capacity) ? capacity : 0
+        return totals
+      }, { total: 0, hospitals: 0, schools: 0, government: 0, community: 0, estimated_capacity: 0 })
+      setShelters(nearbyShelters)
+      setSummary(nearbySummary)
     } catch (e) {
       console.warn('Shelter refresh failed:', e)
     }
-  }, [])
+  }, [region.bbox])
+
+  useEffect(() => {
+    // A selected shelter may belong to the previous region, so do not retain a
+    // route or destination marker after the user moves the map.
+    setSelectedShelter(null)
+  }, [region.lat, region.lng])
 
   useEffect(() => {
     refresh()
@@ -81,7 +98,7 @@ export function ShelterProvider({ children }) {
     let mounted = true
     async function fetchNearest() {
       try {
-        const res = await getNearestShelter(userLocation.lat, userLocation.lng)
+        const res = await getNearestShelter(userLocation.lat, userLocation.lng, 50)
         if (mounted && res.data) setNearestSafe(res.data)
       } catch (e) {
         console.warn('Nearest shelter fetch failed:', e)

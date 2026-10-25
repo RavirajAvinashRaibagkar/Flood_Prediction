@@ -1,0 +1,56 @@
+[
+  {
+    "Configuration": "1. Baseline (Global Mean)",
+    "Category": "Baseline",
+    "MAE (m)": 176.82,
+    "RMSE (m)": 185.77,
+    "R2": -0.128,
+    "KGE": NaN,
+    "Notes": "Predicts training global mean"
+  },
+  {
+    "Configuration": "2. Linear / Ridge Regression",
+    "Category": "Baseline",
+    "MAE (m)": 7.37,
+    "RMSE (m)": 11.32,
+    "R2": 0.9958,
+    "KGE": 0.9539,
+    "Notes": "L2 regularized linear model on flattened sequence"
+  },
+  {
+    "Configuration": "3. LightGBM Regressor",
+    "Category": "Tree-based Baseline",
+    "MAE (m)": 10.43,
+    "RMSE (m)": 18.12,
+    "R2": 0.9893,
+    "KGE": 0.9448,
+    "Notes": "300 trees, leaf-wise depth"
+  },
+  {
+    "Configuration": "4. XGBoost Regressor",
+    "Category": "Tree-based Baseline",
+    "MAE (m)": 8.06,
+    "RMSE (m)": 14.64,
+    "R2": 0.993,
+    "KGE": 0.9726,
+    "Notes": "300 trees, depth 5"
+  },
+  {
+    "Configuration": "5. BiLSTM + AttentionPooling (Full v3)",
+    "Category": "Deep Sequence Architecture",
+    "MAE (m)": 2.51,
+    "RMSE (m)": 8.18,
+    "R2": 0.9978,
+    "KGE": 0.984,
+    "Notes": "BiDir-LSTM(64,32) + AttentionPooling + Augmentation"
+  },
+  {
+    "Configuration": "6. Stacked Ensemble (LSTM + XGB + Ridge)",
+    "Category": "Ensemble",
+    "MAE (m)": 4.12,
+    "RMSE (m)": 8.75,
+    "R2": 0.9975,
+    "KGE": 0.9809,
+    "Notes": "50% BiLSTM-v3 + 30% XGBoost + 20% Ridge"
+  }
+]

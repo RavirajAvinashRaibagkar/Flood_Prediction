@@ -32,33 +32,27 @@ export default function Dashboard() {
 
   // Automated alert status (derived; no manual controls)
   const alertStatus = useMemo(() => {
-    const score = riskScore?.score || 0
+    const score = Number.isFinite(riskScore?.score) ? riskScore.score : null
     const level = riskScore?.level || 'LOW'
     const raw = riskScore?.raw || {}
     const trend = raw.trend || 'stable'
 
-    const publicAlert = score > 70 && (trend === 'rising' || level === 'HIGH')
-      ? 'SENT'
-      : score > 50
-        ? 'PENDING'
-        : 'NOT SENT'
+    const publicAlert = score === null ? 'UNAVAILABLE' : score > 70 && (trend === 'rising' || level === 'HIGH')
+      ? 'RECOMMENDED'
+      : 'NO ACTION'
 
-    const authorities = score > 85
-      ? 'NOTIFIED'
-      : score > 70
-        ? 'STANDBY'
-        : 'PENDING'
+    const authorities = score === null ? 'UNAVAILABLE' : score > 85 ? 'RECOMMENDED' : 'NO ACTION'
 
-    const triggerReason = publicAlert === 'SENT'
+    const triggerReason = publicAlert === 'RECOMMENDED'
       ? `High rainfall + ${trend === 'rising' ? 'river surge' : 'elevated risk'} (Score: ${score}%)`
-      : authorities === 'NOTIFIED'
+      : authorities === 'RECOMMENDED'
         ? `Critical risk level (Score: ${score}%)`
         : null
 
     return {
       publicAlert,
       authorities,
-      lastTriggerTime: triggerReason ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+      lastTriggerTime: null,
       triggerReason,
     }
   }, [riskScore])

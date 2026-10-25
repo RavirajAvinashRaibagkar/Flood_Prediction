@@ -1,14 +1,16 @@
 import { useState, useRef, useCallback } from 'react'
-import { predictImage, predictTimeseries } from '../services/api'
+import { predictImage, predictTimeseries, predictSegmentation } from '../services/api'
 
 export default function DataUpload() {
     const [imageFile, setImageFile] = useState(null)
     const [csvFile, setCsvFile] = useState(null)
     const [imagePreview, setImagePreview] = useState(null)
     const [imageResult, setImageResult] = useState(null)
+    const [analysisMode, setAnalysisMode] = useState('auto') // 'auto', 'classification', 'segmentation'
     const [csvResult, setCsvResult] = useState(null)
     const [imageLoading, setImageLoading] = useState(false)
     const [csvLoading, setCsvLoading] = useState(false)
+    const [uploadError, setUploadError] = useState('')
     const [dragOverImage, setDragOverImage] = useState(false)
     const [dragOverCsv, setDragOverCsv] = useState(false)
     const imageInputRef = useRef(null)
@@ -18,9 +20,14 @@ export default function DataUpload() {
         e.preventDefault()
         setDragOverImage(false)
         const file = e.dataTransfer.files[0]
-        if (file && file.type.startsWith('image/')) {
+        if (file) {
             setImageFile(file)
-            setImagePreview(URL.createObjectURL(file))
+            setUploadError('')
+            if (!file.name.endsWith('.tif') && !file.name.endsWith('.tiff')) {
+                setImagePreview(URL.createObjectURL(file))
+            } else {
+                setImagePreview(null)
+            }
         }
     }, [])
 
@@ -37,7 +44,12 @@ export default function DataUpload() {
         const file = e.target.files?.[0]
         if (file) {
             setImageFile(file)
-            setImagePreview(URL.createObjectURL(file))
+            setUploadError('')
+            if (!file.name.endsWith('.tif') && !file.name.endsWith('.tiff')) {
+                setImagePreview(URL.createObjectURL(file))
+            } else {
+                setImagePreview(null)
+            }
         }
     }
 
@@ -50,24 +62,33 @@ export default function DataUpload() {
         if (!imageFile) return
         setImageLoading(true)
         setImageResult(null)
+        setUploadError('')
+
+        const isTiff = imageFile.name.endsWith('.tif') || imageFile.name.endsWith('.tiff')
+        const runSegmentation = analysisMode === 'segmentation' || (analysisMode === 'auto' && isTiff)
+
         try {
             const formData = new FormData()
             formData.append('file', imageFile)
-            const res = await predictImage(formData)
-            setImageResult(res.data)
-        } catch {
-            // Mock fallback
-            setTimeout(() => {
+
+            if (runSegmentation) {
+                const res = await predictSegmentation(formData)
                 setImageResult({
-                    flood_probability: parseFloat((Math.random() * 0.5 + 0.3).toFixed(3)),
-                    segmentation: { flood_percentage: parseFloat((Math.random() * 35 + 10).toFixed(1)) },
-                    model: 'CNN Classifier + U-Net Segmentation'
+                    type: 'segmentation',
+                    ...res.data
                 })
-                setImageLoading(false)
-            }, 2000)
-            return
+            } else {
+                const res = await predictImage(formData)
+                setImageResult({
+                    type: 'classification',
+                    ...res.data
+                })
+            }
+        } catch (err) {
+            setUploadError(err.response?.data?.detail || err.message || 'Image processing failed.')
+        } finally {
+            setImageLoading(false)
         }
-        setImageLoading(false)
     }
 
     const submitCsv = async () => {
@@ -130,13 +151,56 @@ export default function DataUpload() {
                                 <p className="text-xs text-slate-400">{imageFile?.name}</p>
                                 <p className="text-[10px] text-slate-600">{(imageFile?.size / 1024).toFixed(1)} KB</p>
                             </div>
+                        ) : imageFile ? (
+                            <div>
+                                <div className="text-4xl mb-2">🛰️</div>
+                                <p className="text-xs text-purple-300 font-mono font-medium">{imageFile?.name}</p>
+                                <p className="text-[10px] text-slate-500">GeoTIFF SAR file ready for segmentation</p>
+                            </div>
                         ) : (
                             <>
                                 <div className="text-4xl mb-3 opacity-50">📁</div>
                                 <p className="text-sm text-slate-400">Drag & drop or click to upload</p>
-                                <p className="text-[10px] text-slate-600 mt-1">Supported: PNG, JPG, TIF</p>
+                                <p className="text-[10px] text-slate-600 mt-1">Supported: GeoTIFF (.tif, .tiff), PNG, JPG</p>
                             </>
                         )}
+                    </div>
+
+                    {/* Mode selection */}
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setAnalysisMode('auto')}
+                            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${
+                                analysisMode === 'auto'
+                                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10'
+                            }`}
+                        >
+                            Auto Detect
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setAnalysisMode('segmentation')}
+                            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${
+                                analysisMode === 'segmentation'
+                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10'
+                            }`}
+                        >
+                            U-Net SAR Seg
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setAnalysisMode('classification')}
+                            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${
+                                analysisMode === 'classification'
+                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                    : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10'
+                            }`}
+                        >
+                            CNN Classify
+                        </button>
                     </div>
 
                     <button
@@ -152,16 +216,61 @@ export default function DataUpload() {
                         ) : 'Analyze Image'}
                     </button>
 
+                    {uploadError && (
+                        <p className="text-xs text-rose-400 bg-rose-500/10 p-2.5 rounded-lg border border-rose-500/20">
+                            {uploadError}
+                        </p>
+                    )}
+
                     {/* Results */}
                     {imageResult && (
-                        <div className="space-y-2 pt-2 border-t border-white/5">
+                        <div className="space-y-3 pt-2 border-t border-white/5">
                             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Results</h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <MiniResult label="Flood Prob" value={`${(imageResult.flood_probability * 100).toFixed(1)}%`}
-                                    color={imageResult.flood_probability > 0.5 ? '#ef4444' : '#22c55e'} />
-                                <MiniResult label="Coverage" value={`${imageResult.segmentation?.flood_percentage}%`} color="#8b5cf6" />
-                            </div>
-                            <p className="text-[10px] text-slate-600">{imageResult.model}</p>
+                            {imageResult.type === 'segmentation' ? (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <MiniResult
+                                            label="Flood Area"
+                                            value={`${((imageResult.flood_area_fraction ?? 0) * 100).toFixed(2)}%`}
+                                            color="#8b5cf6"
+                                        />
+                                        <MiniResult
+                                            label="Threshold"
+                                            value={`τ=${imageResult.threshold_used ?? 0.5517}`}
+                                            color="#06b6d4"
+                                        />
+                                    </div>
+                                    {imageResult.mask_overlay_b64 && (
+                                        <div className="mt-2 text-center">
+                                            <p className="text-[11px] text-slate-400 mb-1">Generated Flood Mask Overlay:</p>
+                                            <img
+                                                src={imageResult.mask_overlay_b64}
+                                                alt="Flood Mask"
+                                                className="max-h-48 mx-auto rounded-lg border border-white/10"
+                                            />
+                                        </div>
+                                    )}
+                                    <p className="text-[10px] text-slate-500">
+                                        Model: {imageResult.model} • {imageResult.device} ({Math.round(imageResult.inference_latency_ms)} ms)
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <MiniResult
+                                            label="Flood Prob"
+                                            value={`${(imageResult.flood_probability * 100).toFixed(1)}%`}
+                                            color={imageResult.flood_probability > 0.5 ? '#ef4444' : '#22c55e'}
+                                        />
+                                        <MiniResult
+                                            label="Water Area"
+                                            value={`${((imageResult.water_area_fraction ?? 0) * 100).toFixed(1)}%`}
+                                            color="#8b5cf6"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-600">{imageResult.model}</p>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
