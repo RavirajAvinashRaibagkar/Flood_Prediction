@@ -112,7 +112,6 @@ try:
             num_layers_to_unfreeze : how many top backbone layers to thaw (default 30)
         """
         # MobileNetV2 layer name pattern
-        backbone_name = f"mobilenetv2_1.00_{input_shape[0]}" if False else None
         for layer in model.layers:
             if hasattr(layer, 'layers'):   # it's a sub-model (the backbone)
                 backbone = layer

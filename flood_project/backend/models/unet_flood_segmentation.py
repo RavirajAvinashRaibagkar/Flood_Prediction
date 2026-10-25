@@ -12,7 +12,6 @@ Applies the exact same training pipeline preprocessing:
   5. Calibrated threshold: 0.5517 (from validation calibration)
 """
 
-import os
 import io
 import json
 import base64
@@ -40,7 +39,6 @@ DEFAULT_NORM_STATS = {
 HAS_TORCH = False
 try:
     import torch
-    import torch.nn as nn
     import segmentation_models_pytorch as smp
     HAS_TORCH = True
 except Exception as e:
@@ -48,7 +46,7 @@ except Exception as e:
 
 HAS_RASTERIO = False
 try:
-    import rasterio
+    import rasterio  # noqa: F401  (availability probe)
     from rasterio.io import MemoryFile
     from rasterio.warp import transform_bounds
     HAS_RASTERIO = True
@@ -298,7 +296,7 @@ class UNetSegmentationAdapter:
             "device": str(self.device),
             "threshold": self.threshold,
             "threshold_used": self.threshold,
-            "dimensions": [height, width],
+            "dimensions": {"width": width, "height": height, "0": height, "1": width},
             "flood_detected": bool(flood_pixels > 0),
             "flood_pixel_count": flood_pixels,
             "flood_pixels": flood_pixels,
@@ -357,7 +355,7 @@ class UNetSegmentationAdapter:
             "device": str(self.device),
             "threshold": self.threshold,
             "threshold_used": self.threshold,
-            "dimensions": [height, width],
+            "dimensions": {"width": width, "height": height, "0": height, "1": width},
             "flood_detected": bool(flood_pixels > 0),
             "flood_pixel_count": flood_pixels,
             "flood_pixels": flood_pixels,

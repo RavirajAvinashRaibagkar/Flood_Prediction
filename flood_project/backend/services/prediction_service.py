@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # ML model stubs (will use real models when available)
 try:
     from models.cnn_flood_classifier import predict_flood_probability, load_trained_model as load_cnn_model
-    from models.lstm_water_prediction import predict_water_level, load_trained_model as load_lstm_model
+    from models.lstm_water_prediction import load_trained_model as load_lstm_model
     HAS_MODELS = True
 except Exception:
     HAS_MODELS = False
@@ -66,9 +66,16 @@ class PredictionService:
             rainfall_norm = min(rainfall_1h / 50.0, 1.0)
 
             # Normalize river discharge (current / historical max)
-            current_discharge = hydro.get("current_discharge", 0)
-            max_historical = hydro.get("max_7day", 1)
-            river_norm = min(current_discharge / max_historical, 1.0) if max_historical > 0 else 0.5
+            current_discharge = hydro.get("current_discharge")
+            max_historical = hydro.get("max_7day")
+            hydro_available = hydro.get("available", True) and (current_discharge is not None)
+
+            if hydro_available and max_historical and max_historical > 0:
+                river_norm = min(current_discharge / max_historical, 1.0)
+                river_comp = round(river_norm, 3)
+            else:
+                river_norm = None
+                river_comp = None
 
             # Elevation factor (low elevation = higher risk)
             elevation_factor = 1 - min(elevation / 100.0, 1.0)
@@ -76,13 +83,24 @@ class PredictionService:
             # CNN probability (use model if available, otherwise estimate from data)
             cnn_prob = self._estimate_cnn_probability(weather, hydro)
 
-            # Composite score
-            score = (
-                0.30 * rainfall_norm
-                + 0.25 * river_norm
-                + 0.20 * elevation_factor
-                + 0.25 * cnn_prob
-            )
+            # Composite score (re-weight if hydro is unavailable, never treat as safe)
+            if river_norm is not None:
+                score = (
+                    0.30 * rainfall_norm
+                    + 0.25 * river_norm
+                    + 0.20 * elevation_factor
+                    + 0.25 * cnn_prob
+                )
+                confidence = "full"
+            else:
+                # Re-weight remaining terms: 0.30 + 0.20 + 0.25 = 0.75
+                score = (
+                    0.30 * rainfall_norm
+                    + 0.20 * elevation_factor
+                    + 0.25 * cnn_prob
+                ) / 0.75
+                confidence = "reduced (discharge unavailable)"
+
             score_100 = round(score * 100, 1)
 
             if score_100 <= 33:
@@ -95,9 +113,10 @@ class PredictionService:
             return {
                 "score": score_100,
                 "level": level,
+                "confidence": confidence,
                 "components": {
                     "rainfall_normalized": round(rainfall_norm, 3),
-                    "river_level_normalized": round(river_norm, 3),
+                    "river_level_normalized": river_comp,
                     "elevation_factor": round(elevation_factor, 3),
                     "cnn_probability": round(cnn_prob, 3),
                 },
@@ -105,8 +124,9 @@ class PredictionService:
                     "rainfall_1h_mm": rainfall_1h,
                     "discharge_m3s": current_discharge,
                     "elevation_m": elevation,
-                    "surge_ratio": hydro.get("surge_ratio", 1.0),
-                    "trend": hydro.get("trend", "stable"),
+                    "surge_ratio": hydro.get("surge_ratio"),
+                    "trend": hydro.get("trend", "unknown"),
+                    "hydro_available": hydro.get("available", False),
                 },
             }
 
@@ -124,13 +144,14 @@ class PredictionService:
         Uses a heuristic based on rainfall, surge ratio, and soil moisture.
         """
         rainfall = weather.get("current", {}).get("rainfall_1h", 0)
-        surge = hydro.get("surge_ratio", 1.0)
+        surge = hydro.get("surge_ratio")
         soil = weather.get("current", {}).get("soil_moisture") or 0.2
 
         # Heuristic: combine signals
         prob = 0.0
         prob += min(rainfall / 40.0, 0.4)      # rainfall contribution
-        prob += min((surge - 1.0) * 0.3, 0.3)   # surge contribution
+        if surge is not None and surge > 1.0:
+            prob += min((surge - 1.0) * 0.3, 0.3)   # surge contribution
         prob += min(soil * 0.5, 0.3)             # soil moisture contribution
 
         return min(max(prob, 0.0), 1.0)

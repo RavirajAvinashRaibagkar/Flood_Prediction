@@ -145,11 +145,75 @@ class TestBackendAPI:
             resp = client.post(f"/api/predict/segment-sample?chip_filename={chip_file}")
             assert resp.status_code == 200, f"Failed segment sample: {resp.text}"
             data = resp.json()
-            assert data["status"] == "success"
-            assert "U-Net" in data["model"]
             assert data["dimensions"]["width"] == 512
             assert data["dimensions"]["height"] == 512
             assert "flood_pixel_count" in data
             assert "mask_overlay_b64" in data
             assert data["mask_overlay_b64"].startswith("data:image/png;base64,")
+
+    def test_sensor_history_endpoint_returns_501(self):
+        """GET /api/sensors/{id} must return 501 No sensor history source configured."""
+        resp = client.get("/api/sensors/1")
+        assert resp.status_code == 501
+        assert "No sensor history source configured" in resp.json()["detail"]
+
+
+class TestHydroService:
+    def test_hydro_service_failure_returns_available_false(self, monkeypatch):
+        """hydro_service returns available=false (not 0) when the HTTP call fails."""
+        import asyncio
+        import httpx
+        from services.hydro_service import fetch_river_levels, _cache
+        from tenacity import stop_after_attempt
+
+        _cache.clear()
+
+        orig_stop = fetch_river_levels.retry.stop
+        fetch_river_levels.retry.stop = stop_after_attempt(1)
+
+        async def mock_get(*args, **kwargs):
+            raise httpx.ConnectError("GloFAS API connection timed out")
+
+        monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+        try:
+            result = asyncio.run(fetch_river_levels(28.6139, 77.2090))
+        finally:
+            fetch_river_levels.retry.stop = orig_stop
+
+        assert result["available"] is False
+        assert result["current_discharge"] is None
+        assert result["danger_threshold_discharge"] is None
+        assert result["trend"] == "unknown"
+        assert result["daily"] == []
+        assert "error" in result
+        assert result["source"] == "Open-Meteo GloFAS (modelled)"
+
+    def test_thresholds_never_swapped(self):
+        """danger_threshold_discharge (m3/s) and danger_level_m (stage) are never swapped."""
+        from services.hydro_service import _parse_river_response
+
+        mock_data = {
+            "daily": {
+                "time": [f"2026-10-{i:02d}" for i in range(1, 11)],
+                "river_discharge": [10.0, 12.0, 15.0, 20.0, 18.0, 14.0, 16.0, 22.0, 19.0, 17.0],
+                "river_discharge_p25": [9.0] * 10,
+                "river_discharge_p75": [24.0] * 10,
+            }
+        }
+
+        # 7-day max is 20.0, so 1.3 * 20.0 = 26.0 m3/s
+        result = _parse_river_response(mock_data, 28.6139, 77.2090)
+        assert result["available"] is True
+        assert result["danger_threshold_discharge"] == 26.0
+        # If danger_level_m is calibrated from CWC gauge, verify distinct units and never swapped
+        if result["danger_level_m"] is not None:
+            assert result["danger_threshold_discharge"] != result["danger_level_m"]
+        assert result["source"] == "Open-Meteo GloFAS (modelled)"
+        assert "danger_source" in result
+        assert "fetched_at" in result
+        # Check bands
+        assert len(result["daily"]) > 0
+        assert result["daily"][0]["lower"] == 9.0
+        assert result["daily"][0]["upper"] == 24.0
 

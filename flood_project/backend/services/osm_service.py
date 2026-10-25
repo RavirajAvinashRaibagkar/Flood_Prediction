@@ -4,7 +4,6 @@ Converts to GeoJSON for flood zone overlay on the map.
 """
 
 import httpx
-import json
 import time
 import logging
 from datetime import datetime

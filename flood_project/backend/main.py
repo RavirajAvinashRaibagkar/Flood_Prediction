@@ -47,11 +47,13 @@ async def alert_engine():
                 "rainfall_1h": weather.get("current", {}).get("rainfall_1h", 0),
                 "soil_moisture": weather.get("current", {}).get("soil_moisture"),
                 "precipitation_probability": weather.get("current", {}).get("precipitation_probability"),
-                "current_discharge": hydro.get("current_discharge", 0),
-                "avg_7day": hydro.get("avg_7day", 0),
-                "surge_ratio": hydro.get("surge_ratio", 1.0),
-                "danger_threshold": hydro.get("danger_threshold", 100),
-                "trend": hydro.get("trend", "stable"),
+                "hydro_available": hydro.get("available", False),
+                "current_discharge": hydro.get("current_discharge"),
+                "avg_7day": hydro.get("avg_7day"),
+                "surge_ratio": hydro.get("surge_ratio"),
+                "danger_threshold_discharge": hydro.get("danger_threshold_discharge"),
+                "danger_threshold": hydro.get("danger_threshold_discharge"),
+                "trend": hydro.get("trend", "unknown"),
             }
 
             new_alerts = evaluate_alerts(region_data)
@@ -61,26 +63,6 @@ async def alert_engine():
 
         except Exception as e:
             logger.error(f"Alert engine error: {e}")
-
-
-# ─── Background: Real Sensor Broadcaster ────────────────────
-async def sensor_broadcaster():
-    """Every 30 seconds: fetch real river discharge and broadcast to connected clients."""
-    while True:
-        await asyncio.sleep(30)
-        try:
-            hydro = await fetch_river_levels(DEFAULT_LAT, DEFAULT_LNG)
-            update = {
-                "sensor_id": "LIVE-DISCHARGE",
-                "water_level": hydro.get("current_discharge", 0),
-                "trend": hydro.get("trend", "stable"),
-                "surge_ratio": hydro.get("surge_ratio", 1.0),
-                "timestamp": datetime.utcnow().isoformat(),
-                "status": "active",
-            }
-            await manager.broadcast(update, channel="sensors")
-        except Exception as e:
-            logger.error(f"Sensor broadcast error: {e}")
 
 
 # ─── Background: Weather Refresher ──────────────────────────
@@ -101,10 +83,9 @@ async def lifespan(app: FastAPI):
     # Startup: launch background tasks
     tasks = [
         asyncio.create_task(alert_engine()),
-        asyncio.create_task(sensor_broadcaster()),
         asyncio.create_task(weather_refresher()),
     ]
-    logger.info("Background tasks started: alert_engine, sensor_broadcaster, weather_refresher")
+    logger.info("Background tasks started: alert_engine, weather_refresher")
     yield
     # Shutdown
     for t in tasks:
@@ -142,7 +123,7 @@ app.include_router(shelter_router, prefix="/api/shelters", tags=["Shelters"])
 # ─── WebSocket Endpoints ────────────────────────────────────
 @app.websocket("/ws/{channel}")
 async def websocket_endpoint(websocket: WebSocket, channel: str):
-    if channel not in ["alerts", "sensors", "predictions"]:
+    if channel not in ["alerts", "predictions"]:
         await websocket.close(code=1008)
         return
 
@@ -230,7 +211,7 @@ async def root():
             "infrastructure": "/api/map/infrastructure?lat=&lng=",
             "sensors": "/api/sensors/levels?lat=&lng=",
             "risk_score": "/api/predict/risk-score?lat=&lng=",
-            "websocket": "/ws/alerts, /ws/sensors",
+            "websocket": "/ws/alerts, /ws/predictions",
             "docs": "/docs",
         },
     }

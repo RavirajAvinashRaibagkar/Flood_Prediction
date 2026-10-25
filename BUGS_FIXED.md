@@ -142,3 +142,14 @@
 | **Evidence** | `scripts/download_sen1floods11.py:199-203` — `ch2 = np.clip((sar_norm * 0.85).astype(np.uint8), 0, 255); ch3 = np.clip(np.abs(sar_norm - 128) * 2, 0, 255)`. |
 | **Fix** | `seg_dataset.py::_make_3ch()` uses physically meaningful channels: VV dB, VH dB, VV-VH dB (cross-polarization ratio in log domain). All three are standard SAR analysis features used in the literature. |
 | **Test** | `seg_dataset.py` self-test prints channel statistics; VV-VH is typically 5-15 dB (sensible for Sentinel-1). |
+
+---
+
+## BUG 14: Mixed threshold units, mock sensor streams, and ungrounded analytics data
+
+| Field | Detail |
+|-------|--------|
+| **Issue** | (1) `hydro_service.py` mixed meters of stage (`danger_level_m` from CWC gauge) with cubic meters per second (`danger_threshold_discharge` from GloFAS discharge) in a single `danger_threshold` variable. (2) On API failure or empty data, `fetch_river_levels` returned `current_discharge: 0` and `danger_threshold: 100`, which downstream risk calculations treated as "safe". (3) `sensor_broadcaster` broadcasted hardcoded Delhi discharge every 30s over `/ws/sensors`. (4) `sensor_routes.py /{sensor_id}` generated random numbers. (5) `useFloodData.js` computed fabricated upper/lower bounds as `discharge * 1.15` and `discharge * 0.85`. (6) `RainfallChart.jsx` used an arbitrary `max(peak * 0.7, 20)` threshold instead of meteorological standards. |
+| **Evidence** | `hydro_service.py:139-142` set `danger_threshold = indofloods_threshold` (metres) or `max_7day * 1.3` (m³/s). `useFloodData.js:43-44` set `upper = d.discharge * 1.15`. `sensor_routes.py:64` generated `random.random()`. |
+| **Fix** | (1) `hydro_service.py` separates `danger_threshold_discharge` (1.3× 7-day max discharge, m³/s) and `danger_level_m` (CWC gauge stage, m) with distinct `danger_source`. (2) On failure or empty data, returns `available: false`, `current_discharge: null`, `trend: 'unknown'`, `daily: []`, and error detail; consumers skip terms or lower confidence rather than treating as safe. (3) `sensor_broadcaster` and `/ws/sensors` channel removed. (4) `GET /api/sensors/{id}` returns HTTP 501 ("No sensor history source configured"). (5) `useFloodData.js` uses real backend GloFAS ensemble percentiles (`p25`/`p75`) when present, else omits band. (6) `WaterLevelChart.jsx` renamed to "River Discharge (modelled)" with source footer. `RainfallChart.jsx` computes 24h rolling accumulation with official IMD thresholds (64.5 heavy, 115.6 very heavy, 204.5 extremely heavy mm/24h) and 5-minute LIVE badge check. |
+| **Test** | `ml_training/tests/test_backend_endpoints.py::TestHydroService::test_hydro_service_failure_returns_available_false`, `test_thresholds_never_swapped`, `test_sensor_history_endpoint_returns_501`. Verified with `pytest ml_training/tests -v` (34 passing). |

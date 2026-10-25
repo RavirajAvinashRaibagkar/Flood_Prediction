@@ -130,7 +130,7 @@ def _fallback_route(olat, olng, dlat, dlng) -> list:
     """Straight line used only when OSRM is unreachable. Flagged so the UI can say so
     instead of presenting it as a real, scored road route."""
     return [{
-        "id": "route_0",
+        "id": "route_fallback",
         "label": "Direct line (road routing unavailable)",
         "geometry": {"type": "LineString", "coordinates": [[olng, olat], [dlng, dlat]]},
         "distance_km": round(_haversine_km(olat, olng, dlat, dlng), 2),

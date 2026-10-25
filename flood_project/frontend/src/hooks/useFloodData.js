@@ -8,6 +8,13 @@ export default function useFloodData(lat = 28.6139, lng = 77.209, refreshInterva
     const [waterLevelData, setWaterLevelData] = useState([])
     const [alerts, setAlerts] = useState([])
     const [loading, setLoading] = useState(true)
+    const [sourceStatus, setSourceStatus] = useState({ rainfall: 'empty', discharge: 'empty' })
+    const [dischargeMeta, setDischargeMeta] = useState({
+        fetchedAt: null,
+        source: null,
+        dangerThresholdDischarge: null,
+    })
+    const [rainfallLastFetched, setRainfallLastFetched] = useState(null)
 
     const fetchData = useCallback(async () => {
         try {
@@ -21,34 +28,69 @@ export default function useFloodData(lat = 28.6139, lng = 77.209, refreshInterva
         try {
             // Fetch real weather history for rainfall chart (past 72h)
             const weatherRes = await getWeatherHistory(lat, lng, 72)
-            if (weatherRes.data && weatherRes.data.data) {
-                const hourly = weatherRes.data.data
+            const hourly = weatherRes.data?.data || []
+            if (hourly.length > 0) {
                 const chartData = hourly.map(h => ({
                     time: h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
                     fullTime: h.time,
-                    rainfall: h.precipitation || 0,
+                    rainfall: typeof h.precipitation === 'number' ? h.precipitation : 0,
                 }))
                 setRainfallData(chartData)
+                setSourceStatus(prev => ({ ...prev, rainfall: 'ok' }))
+                setRainfallLastFetched(Date.now())
+            } else {
+                setRainfallData([])
+                setSourceStatus(prev => ({ ...prev, rainfall: 'empty' }))
             }
-        } catch { setRainfallData([]) }
+        } catch {
+            setRainfallData([])
+            setSourceStatus(prev => ({ ...prev, rainfall: 'error' }))
+        }
 
         try {
-            // Fetch real river discharge for water level chart
+            // Fetch real river discharge from GloFAS model
             const hydroRes = await getSensorLevels(lat, lng)
-            if (hydroRes.data && hydroRes.data.daily) {
-                const chartData = hydroRes.data.daily.map(d => ({
-                    time: d.date,
-                    fullTime: d.date,
-                    level: d.discharge != null ? parseFloat(d.discharge.toFixed(2)) : 0,
-                    upper: d.discharge != null ? parseFloat((d.discharge * 1.15).toFixed(2)) : 0,
-                    lower: d.discharge != null ? parseFloat((d.discharge * 0.85).toFixed(2)) : 0,
-                    danger: hydroRes.data.danger_threshold || 100,
-                    isLive: !d.is_forecast,
-                    isForecast: d.is_forecast,
-                }))
+            const data = hydroRes.data
+            const isAvail = data && data.available !== false
+            const daily = data?.daily || []
+            const dangerThreshold = data?.danger_threshold_discharge ?? null
+
+            setDischargeMeta({
+                fetchedAt: data?.fetched_at || null,
+                source: data?.source || 'Open-Meteo GloFAS (modelled)',
+                dangerThresholdDischarge: dangerThreshold,
+            })
+
+            if (isAvail && daily.length > 0) {
+                const chartData = daily.map(d => {
+                    const point = {
+                        time: d.date,
+                        fullTime: d.date,
+                        level: d.discharge != null ? parseFloat(Number(d.discharge).toFixed(2)) : null,
+                        danger: dangerThreshold,
+                        isLive: !d.is_forecast,
+                        isForecast: d.is_forecast,
+                    }
+                    // Use backend band if present, else omit
+                    if (d.lower != null && d.upper != null) {
+                        point.lower = parseFloat(Number(d.lower).toFixed(2))
+                        point.upper = parseFloat(Number(d.upper).toFixed(2))
+                    }
+                    return point
+                })
                 setWaterLevelData(chartData)
+                setSourceStatus(prev => ({ ...prev, discharge: 'ok' }))
+            } else {
+                setWaterLevelData([])
+                setSourceStatus(prev => ({
+                    ...prev,
+                    discharge: !isAvail ? (data?.error ? 'error' : 'empty') : 'empty'
+                }))
             }
-        } catch { setWaterLevelData([]) }
+        } catch {
+            setWaterLevelData([])
+            setSourceStatus(prev => ({ ...prev, discharge: 'error' }))
+        }
 
         setLoading(false)
     }, [lat, lng])
@@ -57,41 +99,36 @@ export default function useFloodData(lat = 28.6139, lng = 77.209, refreshInterva
         Promise.resolve().then(fetchData)
         const interval = setInterval(fetchData, refreshInterval)
         
-        // ─── WebSocket Integration ───
+        // ─── WebSocket Integration (alerts only) ───
         const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
         const wsBase = apiBase.replace(/^http/, 'ws').replace(/\/api\/?$/, '')
         const alertWS = new WebSocket(`${wsBase}/ws/alerts`)
-        const sensorWS = new WebSocket(`${wsBase}/ws/sensors`)
 
         alertWS.onmessage = (event) => {
-            const newAlert = JSON.parse(event.data)
-            setAlerts(prev => [newAlert, ...prev.slice(0, 19)])
-        }
-
-        sensorWS.onmessage = (event) => {
-            const update = JSON.parse(event.data)
-            setWaterLevelData(prev => {
-                const time = new Date(update.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                const newPoint = {
-                    time,
-                    fullTime: update.timestamp,
-                    level: update.water_level,
-                    upper: parseFloat((update.water_level + 0.3).toFixed(2)),
-                    lower: parseFloat((update.water_level - 0.3).toFixed(2)),
-                    danger: 4.0,
-                    isLive: true
-                }
-                return [...prev.slice(-23), newPoint]
-            })
+            try {
+                const newAlert = JSON.parse(event.data)
+                setAlerts(prev => [newAlert, ...prev.slice(0, 19)])
+            } catch {
+                // Ignore parse errors
+            }
         }
 
         return () => {
             clearInterval(interval)
             alertWS.close()
-            sensorWS.close()
         }
     }, [fetchData, refreshInterval])
 
-    return { riskScore, rainfallData, waterLevelData, alerts, loading, refetch: fetchData }
+    return {
+        riskScore,
+        rainfallData,
+        waterLevelData,
+        alerts,
+        loading,
+        sourceStatus,
+        dischargeMeta,
+        rainfallLastFetched,
+        refetch: fetchData,
+    }
 }
 

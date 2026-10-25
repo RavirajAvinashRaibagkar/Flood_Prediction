@@ -29,7 +29,15 @@ export default function Dashboard() {
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showShelterModal, setShowShelterModal] = useState(false)
 
-  const { riskScore, rainfallData, waterLevelData, alerts } = useFloodData(region.lat, region.lng, 30000)
+  const {
+    riskScore,
+    rainfallData,
+    waterLevelData,
+    alerts,
+    sourceStatus,
+    dischargeMeta,
+    rainfallLastFetched,
+  } = useFloodData(region.lat, region.lng, 30000)
 
   // Automated alert status (derived; no manual controls)
   const alertStatus = useMemo(() => {
@@ -115,6 +123,9 @@ export default function Dashboard() {
             <AnalyticsPanel
               rainfallData={rainfallData}
               waterLevelData={waterLevelData}
+              sourceStatus={sourceStatus}
+              dischargeMeta={dischargeMeta}
+              rainfallLastFetched={rainfallLastFetched}
               onClose={() => setShowAnalytics(false)}
             />
           )}

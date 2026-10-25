@@ -6,7 +6,6 @@ from Overpass API (OpenStreetMap).
 import httpx
 import time
 import logging
-from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)

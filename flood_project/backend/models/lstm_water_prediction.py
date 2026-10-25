@@ -23,7 +23,6 @@ FEATURE SPEC (must match data_pipeline_v3.py ALL_FEATURE_NAMES):
     [10] catchment_area_km2
 """
 
-import os
 import json
 import logging
 import numpy as np

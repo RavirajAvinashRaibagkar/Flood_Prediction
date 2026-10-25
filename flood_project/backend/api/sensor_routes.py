@@ -55,21 +55,7 @@ async def list_sensors(
 @router.get("/{sensor_id}")
 async def get_sensor_history(sensor_id: int):
     """Get historical readings for a sensor."""
-    # Generate history (will be replaced with DB queries in Step 7)
-    history = []
-    for i in range(48):
-        ts = datetime.utcnow().timestamp() - i * 3600
-        history.append({
-            "timestamp": datetime.fromtimestamp(ts).isoformat(),
-            "water_level": round(2.0 + random.random() * 2.5 + 0.5 * (i % 12) / 12, 2),
-            "rainfall": round(max(0, 10 + random.gauss(0, 8)), 1),
-        })
-
-    return {
-        "sensor_id": sensor_id,
-        "readings": history,
-        "count": len(history),
-    }
+    raise HTTPException(status_code=501, detail="No sensor history source configured")
 
 
 @router.post("/ingest")

@@ -58,26 +58,28 @@ def _run_rules(data: dict) -> list:
         })
 
     # ─── Rule 2: River discharge surge ──────────────────────
-    surge_ratio = data.get("surge_ratio", 1.0)
-    current_discharge = data.get("current_discharge", 0)
-    if surge_ratio > 1.5:
-        alerts.append({
-            "severity": "critical",
-            "message": f"River discharge {(surge_ratio-1)*100:.0f}% above weekly average ({current_discharge:.1f} m³/s)",
-        })
-    elif surge_ratio > 1.2:
-        alerts.append({
-            "severity": "high",
-            "message": f"River discharge elevated: {surge_ratio:.1f}x weekly average",
-        })
+    surge_ratio = data.get("surge_ratio")
+    current_discharge = data.get("current_discharge")
+    if surge_ratio is not None and current_discharge is not None:
+        if surge_ratio > 1.5:
+            alerts.append({
+                "severity": "critical",
+                "message": f"River discharge {(surge_ratio-1)*100:.0f}% above weekly average ({current_discharge:.1f} m³/s)",
+            })
+        elif surge_ratio > 1.2:
+            alerts.append({
+                "severity": "high",
+                "message": f"River discharge elevated: {surge_ratio:.1f}x weekly average",
+            })
 
     # ─── Rule 3: Discharge exceeds danger threshold ─────────
-    danger_threshold = data.get("danger_threshold", 100)
-    if current_discharge > danger_threshold:
-        alerts.append({
-            "severity": "critical",
-            "message": f"DANGER: River discharge ({current_discharge:.1f} m³/s) exceeds threshold ({danger_threshold:.1f} m³/s)",
-        })
+    danger_threshold = data.get("danger_threshold_discharge") or data.get("danger_threshold")
+    if current_discharge is not None and danger_threshold is not None:
+        if current_discharge > danger_threshold:
+            alerts.append({
+                "severity": "critical",
+                "message": f"DANGER: River discharge ({current_discharge:.1f} m³/s) exceeds threshold ({danger_threshold:.1f} m³/s)",
+            })
 
     # ─── Rule 4: Soil moisture saturation ───────────────────
     soil_moisture = data.get("soil_moisture", 0)
@@ -97,7 +99,7 @@ def _run_rules(data: dict) -> list:
 
     # ─── Rule 6: Rising trend ───────────────────────────────
     trend = data.get("trend", "stable")
-    if trend == "rising" and surge_ratio > 1.1:
+    if trend == "rising" and surge_ratio is not None and surge_ratio > 1.1:
         alerts.append({
             "severity": "medium",
             "message": "River discharge trend: RISING — monitor closely",
